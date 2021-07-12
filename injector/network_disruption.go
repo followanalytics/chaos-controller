@@ -68,7 +68,7 @@ func NewNetworkDisruptionInjector(spec v1beta1.NetworkDisruptionSpec, config Net
 }
 
 // Inject injects the given network disruption into the given container
-func (i networkDisruptionInjector) Inject() error {
+func (i networkDisruptionInjector) Inject(ctx context.Context) error {
 	// enter target network namespace
 	if err := i.config.Netns.Enter(); err != nil {
 		return fmt.Errorf("unable to enter the given container network namespace: %w", err)

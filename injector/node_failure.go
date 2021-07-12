@@ -6,6 +6,7 @@
 package injector
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -57,13 +58,20 @@ func NewNodeFailureInjector(spec v1beta1.NodeFailureSpec, config NodeFailureInje
 }
 
 // Inject triggers a kernel panic through the sysrq trigger
-func (i nodeFailureInjector) Inject() error {
+func (i nodeFailureInjector) Inject(ctx context.Context) error {
 	var err error
 
 	i.config.Log.Infow("injecting a node failure by triggering a kernel panic",
 		"sysrq_path", i.sysrqPath,
 		"sysrq_trigger_path", i.sysrqTriggerPath,
 	)
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		break
+	}
 
 	// Ensure sysrq value is set to 1 (to accept the kernel panic trigger)
 	if err := i.config.FileWriter.Write(i.sysrqPath, 0644, "1"); err != nil {

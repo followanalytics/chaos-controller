@@ -6,6 +6,8 @@
 package injector
 
 import (
+	"context"
+
 	"github.com/DataDog/chaos-controller/cgroup"
 	"github.com/DataDog/chaos-controller/container"
 	"github.com/DataDog/chaos-controller/metrics"
@@ -17,7 +19,7 @@ import (
 
 // Injector is an interface being able to inject or clean disruptions
 type Injector interface {
-	Inject() error
+	Inject(ctx context.Context) error
 	Clean() error
 }
 

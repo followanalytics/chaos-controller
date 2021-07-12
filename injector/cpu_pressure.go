@@ -6,6 +6,7 @@
 package injector
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"sync"
@@ -52,7 +53,7 @@ func NewCPUPressureInjector(spec v1beta1.CPUPressureSpec, config CPUPressureInje
 	}
 }
 
-func (i cpuPressureInjector) Inject() error {
+func (i cpuPressureInjector) Inject(ctx context.Context) error {
 	// read cpuset allocated cores
 	i.config.Log.Infow("retrieving target cpuset allocated cores")
 
@@ -84,6 +85,7 @@ func (i cpuPressureInjector) Inject() error {
 	// each thread is also niced to the highest priority
 	// because of linux scheduling, each thread will occupy a different core of allocated cores when stressing the cpu
 	for _, core := range cores.ToSlice() {
+
 		wg.Add(1)
 
 		go func(core int) {
@@ -141,8 +143,20 @@ func (i cpuPressureInjector) Inject() error {
 		}(core)
 	}
 
+	waitCh := make(chan struct{})
+
+	go func() {
+		wg.Wait()
+		close(waitCh)
+	}()
+
 	// wait for stress routines to finish initializing
-	wg.Wait()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-waitCh:
+		break
+	}
 
 	if !succeeded {
 		return fmt.Errorf("at least one stresser routine failed to execute")

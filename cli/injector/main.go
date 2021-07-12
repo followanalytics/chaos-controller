@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -267,11 +268,21 @@ func injectAndWait(cmd *cobra.Command, args []string) {
 	log.Info("injecting the disruption")
 
 	errOnInject := false
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		// wait for an exit signal, this is a blocking call
+		sig := <-signals
+
+		log.Infow("an exit signal has been received", "signal", sig.String())
+
+		cancel()
+	}()
 
 	for _, inj := range injectors {
 		// start injection, do not fatal on error so we keep the pod
 		// running, allowing the cleanup to happen
-		if err := inj.Inject(); err != nil {
+		if err := inj.Inject(ctx); err != nil {
 			errOnInject = true
 
 			handleMetricError(ms.MetricInjected(false, cmd.Name(), nil))
@@ -311,11 +322,6 @@ func injectAndWait(cmd *cobra.Command, args []string) {
 			log.Error("the --on-init flag was provided but no handler container could be found")
 		}
 	}
-
-	// wait for an exit signal, this is a blocking call
-	sig := <-signals
-
-	log.Infow("an exit signal has been received", "signal", sig.String())
 }
 
 // cleanAndExit cleans the disruption with the configured injector and exits nicely

@@ -6,6 +6,7 @@
 package injector
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -60,7 +61,7 @@ func NewDNSDisruptionInjector(spec v1beta1.DNSDisruptionSpec, config DNSDisrupti
 }
 
 // Inject injects the given dns disruption into the given container
-func (i DNSDisruptionInjector) Inject() error {
+func (i DNSDisruptionInjector) Inject(ctx context.Context) error {
 	i.config.Log.Infow("adding dns disruption", "spec", i.spec)
 
 	// get the chaos pod node IP from the environment variable
