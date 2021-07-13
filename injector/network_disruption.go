@@ -90,7 +90,7 @@ func (i networkDisruptionInjector) Inject(ctx context.Context) error {
 
 	// apply operations if any
 	if len(i.operations) > 0 {
-		if err := i.applyOperations(); err != nil {
+		if err := i.applyOperations(ctx); err != nil {
 			return fmt.Errorf("error applying tc operations: %w", err)
 		}
 
@@ -100,8 +100,10 @@ func (i networkDisruptionInjector) Inject(ctx context.Context) error {
 	i.config.Log.Info("editing pod net_cls cgroup to apply a classid to target container packets")
 
 	// write classid to pod net_cls cgroup
-	if err := i.config.Cgroup.Write("net_cls", "net_cls.classid", "0x00020002"); err != nil {
-		return fmt.Errorf("error writing classid to pod net_cls cgroup: %w", err)
+	if ctx.Err() != nil {
+		if err := i.config.Cgroup.Write("net_cls", "net_cls.classid", "0x00020002"); err != nil {
+			return fmt.Errorf("error writing classid to pod net_cls cgroup: %w", err)
+		}
 	}
 
 	// exit target network namespace
@@ -171,7 +173,7 @@ func (i networkDisruptionInjector) Clean() error {
 //         |- (3:) <-- first operation
 //           |- (4:) <-- second operation
 //             ...
-func (i *networkDisruptionInjector) applyOperations() error {
+func (i *networkDisruptionInjector) applyOperations(ctx context.Context) error {
 	// get interfaces
 	links, err := i.config.NetlinkAdapter.LinkList()
 	if err != nil {
@@ -293,6 +295,10 @@ func (i *networkDisruptionInjector) applyOperations() error {
 		// apply filters for given hosts
 		if len(i.spec.Hosts) > 0 {
 			for _, host := range i.spec.Hosts {
+				// check if we've been cancelled before resolving more hosts
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 				// resolve given hosts if needed
 				ips, err := resolveHost(i.config.DNSClient, host.Host)
 				if err != nil {
@@ -323,7 +329,7 @@ func (i *networkDisruptionInjector) applyOperations() error {
 		}
 
 		// apply filters for given services
-		services, err := i.getServices()
+		services, err := i.getServices(ctx)
 		if err != nil {
 			return fmt.Errorf("error getting services IPs and ports: %w", err)
 		}
@@ -393,10 +399,14 @@ func (i *networkDisruptionInjector) applyOperations() error {
 }
 
 // getServices parses the Kubernetes services in the disruption spec and returns a set of (ip, port, protocol) tuples
-func (i *networkDisruptionInjector) getServices() ([]networkDisruptionService, error) {
+func (i *networkDisruptionInjector) getServices(ctx context.Context) ([]networkDisruptionService, error) {
 	services := []networkDisruptionService{}
 
 	for _, service := range i.spec.Services {
+		// check if we're cancelled before resolving more services
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		// retrieve service
 		k8sService, err := i.config.K8sClient.CoreV1().Services(service.Namespace).Get(context.Background(), service.Name, metav1.GetOptions{})
 		if err != nil {
