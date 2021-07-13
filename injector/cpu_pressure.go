@@ -85,6 +85,10 @@ func (i cpuPressureInjector) Inject(ctx context.Context) error {
 	// each thread is also niced to the highest priority
 	// because of linux scheduling, each thread will occupy a different core of allocated cores when stressing the cpu
 	for _, core := range cores.ToSlice() {
+		// check if we're cancelled before beginning more stress routines
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 
 		wg.Add(1)
 
