@@ -5,6 +5,7 @@
 package injector_test
 
 import (
+	"context"
 	"os"
 
 	. "github.com/onsi/ginkgo"
@@ -80,7 +81,7 @@ var _ = Describe("Failure", func() {
 
 	Describe("injection", func() {
 		JustBeforeEach(func() {
-			Expect(inj.Inject()).To(BeNil())
+			Expect(inj.Inject(context.Background())).To(BeNil())
 		})
 
 		It("should throttle disk from cgroup", func() {

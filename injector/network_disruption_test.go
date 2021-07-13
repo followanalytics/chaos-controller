@@ -6,6 +6,7 @@
 package injector_test
 
 import (
+	"context"
 	"net"
 	"os"
 	"time"
@@ -183,7 +184,7 @@ var _ = Describe("Failure", func() {
 
 	Describe("inj.Inject", func() {
 		JustBeforeEach(func() {
-			Expect(inj.Inject()).To(BeNil())
+			Expect(inj.Inject(context.Background())).To(BeNil())
 		})
 
 		// general tests that should work for all contexts

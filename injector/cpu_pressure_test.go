@@ -5,6 +5,8 @@
 package injector_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
@@ -75,7 +77,7 @@ var _ = Describe("Failure", func() {
 		JustBeforeEach(func() {
 			// because the cleaning phase is blocking, we start it in a goroutine
 			// and send a signal to the stresser exit handler
-			Expect(inj.Inject()).To(BeNil())
+			Expect(inj.Inject(context.Background())).To(BeNil())
 
 			go func() {
 				Expect(inj.Clean()).To(BeNil())

@@ -66,7 +66,7 @@ func NewDiskPressureInjector(spec v1beta1.DiskPressureSpec, config DiskPressureI
 
 func (i diskPressureInjector) Inject(ctx context.Context) error {
 	// add read throttle
-	if ctx.Err() != nil && i.spec.Throttling.ReadBytesPerSec != nil {
+	if ctx.Err() == nil && i.spec.Throttling.ReadBytesPerSec != nil {
 		if err := i.config.Cgroup.DiskThrottleRead(i.config.Informer.Major(), *i.spec.Throttling.ReadBytesPerSec); err != nil {
 			return fmt.Errorf("error throttling disk read: %w", err)
 		}
@@ -75,7 +75,7 @@ func (i diskPressureInjector) Inject(ctx context.Context) error {
 	}
 
 	// add write throttle
-	if ctx.Err() != nil && i.spec.Throttling.WriteBytesPerSec != nil {
+	if ctx.Err() == nil && i.spec.Throttling.WriteBytesPerSec != nil {
 		if err := i.config.Cgroup.DiskThrottleWrite(i.config.Informer.Major(), *i.spec.Throttling.WriteBytesPerSec); err != nil {
 			return fmt.Errorf("error throttling disk write: %w", err)
 		}

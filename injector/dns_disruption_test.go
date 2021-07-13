@@ -6,6 +6,7 @@
 package injector_test
 
 import (
+	"context"
 	"os"
 
 	"github.com/DataDog/chaos-controller/api/v1beta1"
@@ -86,7 +87,7 @@ var _ = Describe("Failure", func() {
 	})
 	Describe("inj.Inject", func() {
 		JustBeforeEach(func() {
-			Expect(inj.Inject()).To(BeNil())
+			Expect(inj.Inject(context.Background())).To(BeNil())
 		})
 
 		It("should enter and exit the target network namespace", func() {

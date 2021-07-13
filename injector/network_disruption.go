@@ -100,7 +100,7 @@ func (i networkDisruptionInjector) Inject(ctx context.Context) error {
 	i.config.Log.Info("editing pod net_cls cgroup to apply a classid to target container packets")
 
 	// write classid to pod net_cls cgroup
-	if ctx.Err() != nil {
+	if ctx.Err() == nil {
 		if err := i.config.Cgroup.Write("net_cls", "net_cls.classid", "0x00020002"); err != nil {
 			return fmt.Errorf("error writing classid to pod net_cls cgroup: %w", err)
 		}
