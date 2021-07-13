@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -269,6 +270,8 @@ func injectAndWait(cmd *cobra.Command, args []string) {
 
 	errOnInject := false
 	ctx, cancel := context.WithCancel(context.Background())
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 
 	go func() {
 		// wait for an exit signal, this is a blocking call
@@ -277,6 +280,7 @@ func injectAndWait(cmd *cobra.Command, args []string) {
 		log.Infow("an exit signal has been received", "signal", sig.String())
 
 		cancel()
+		wg.Done()
 	}()
 
 	for _, inj := range injectors {
@@ -322,6 +326,8 @@ func injectAndWait(cmd *cobra.Command, args []string) {
 			log.Error("the --on-init flag was provided but no handler container could be found")
 		}
 	}
+
+	wg.Wait()
 }
 
 // cleanAndExit cleans the disruption with the configured injector and exits nicely
