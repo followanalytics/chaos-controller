@@ -24,6 +24,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -37,6 +38,7 @@ import (
 	"github.com/DataDog/chaos-controller/metrics"
 	"github.com/DataDog/chaos-controller/metrics/types"
 	chaoswebhook "github.com/DataDog/chaos-controller/webhook"
+	"github.com/spf13/viper"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,6 +55,7 @@ func init() {
 
 func main() {
 	var (
+		config                                string
 		metricsAddr                           string
 		enableLeaderElection                  bool
 		deleteOnly                            bool
@@ -71,29 +74,81 @@ func main() {
 		admissionWebhookPort                  int
 	)
 
+	// parse flags
+	pflag.StringVar(&config, "config", "", "Configuration file path")
+
 	pflag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	handleFatalError(viper.BindPFlag("controller.metrics.addr", pflag.Lookup("metrics-addr")))
+
 	pflag.BoolVar(&enableLeaderElection, "enable-leader-election", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	handleFatalError(viper.BindPFlag("controller.leaderElection", pflag.Lookup("enable-leader-election")))
+
 	pflag.BoolVar(&deleteOnly, "delete-only", false,
 		"Enable delete only mode which will not allow new disruption to start and will only continue to clean up and remove existing disruptions.")
-	pflag.StringToStringVar(&injectorAnnotations, "injector-annotations", map[string]string{}, "Annotations added to the generated injector pods")
-	pflag.StringVar(&injectorServiceAccount, "injector-service-account", "chaos-injector", "Service account to use for the generated injector pods")
-	pflag.StringVar(&injectorServiceAccountNamespace, "injector-service-account-namespace", "chaos-engineering", "Namespace of the service account to use for the generated injector pods. Should also host the controller.")
-	pflag.StringVar(&injectorImage, "injector-image", "chaos-injector", "Image to pull for the injector pods")
-	pflag.StringSliceVar(&injectorNetworkDisruptionAllowedHosts, "injector-network-disruption-allowed-hosts", []string{}, "List of hosts always allowed by network disruptions (format: <host>;<port>;<protocol>)")
-	pflag.BoolVar(&handlerEnabled, "handler-enabled", false, "Enable the chaos handler for on-init disruptions")
-	pflag.StringVar(&handlerImage, "handler-image", "chaos-handler", "Image to pull for the handler containers")
-	pflag.DurationVar(&handlerTimeout, "handler-timeout", time.Minute, "Handler init container timeout")
+	handleFatalError(viper.BindPFlag("controller.deleteOnly", pflag.Lookup("delete-only")))
+
 	pflag.StringVar(&imagePullSecrets, "image-pull-secrets", "", "Secrets used for pulling the Docker image from a private registry")
+	handleFatalError(viper.BindPFlag("controller.imagePullSecrets", pflag.Lookup("image-pull-secrets")))
+
 	pflag.StringVar(&sink, "metrics-sink", "noop", "Metrics sink (datadog, or noop)")
+	handleFatalError(viper.BindPFlag("controller.metricsSink", pflag.Lookup("metrics-sink")))
+
+	pflag.StringToStringVar(&injectorAnnotations, "injector-annotations", map[string]string{}, "Annotations added to the generated injector pods")
+	handleFatalError(viper.BindPFlag("injector.annotations", pflag.Lookup("injector-annotations")))
+
+	pflag.StringVar(&injectorServiceAccount, "injector-service-account", "chaos-injector", "Service account to use for the generated injector pods")
+	handleFatalError(viper.BindPFlag("injector.serviceAccount.name", pflag.Lookup("injector-service-account")))
+
+	pflag.StringVar(&injectorServiceAccountNamespace, "injector-service-account-namespace", "chaos-engineering", "Namespace of the service account to use for the generated injector pods. Should also host the controller.")
+	handleFatalError(viper.BindPFlag("injector.serviceAccount.namespace", pflag.Lookup("injector-service-account-namespace")))
+
+	pflag.StringVar(&injectorImage, "injector-image", "chaos-injector", "Image to pull for the injector pods")
+	handleFatalError(viper.BindPFlag("injector.image", pflag.Lookup("injector-image")))
+
+	pflag.StringSliceVar(&injectorNetworkDisruptionAllowedHosts, "injector-network-disruption-allowed-hosts", []string{}, "List of hosts always allowed by network disruptions (format: <host>;<port>;<protocol>)")
+	handleFatalError(viper.BindPFlag("injector.networkDisruption.allowedHosts", pflag.Lookup("injector-network-disruption-allowed-hosts")))
+
+	pflag.BoolVar(&handlerEnabled, "handler-enabled", false, "Enable the chaos handler for on-init disruptions")
+	handleFatalError(viper.BindPFlag("handler.enabled", pflag.Lookup("handler-enabled")))
+
+	pflag.StringVar(&handlerImage, "handler-image", "chaos-handler", "Image to pull for the handler containers")
+	handleFatalError(viper.BindPFlag("handler.image", pflag.Lookup("handler-image")))
+
+	pflag.DurationVar(&handlerTimeout, "handler-timeout", time.Minute, "Handler init container timeout")
+	handleFatalError(viper.BindPFlag("handler.timeout", pflag.Lookup("handler-timeout")))
+
 	pflag.StringVar(&admissionWebhookCertDir, "admission-webhook-cert-dir", "", "Admission webhook certificate directory to search for tls.crt and tls.key files")
+	handleFatalError(viper.BindPFlag("controller.webhook.certDir", pflag.Lookup("admission-webhook-cert-dir")))
+
 	pflag.StringVar(&admissionWebhookHost, "admission-webhook-host", "", "Host used by the admission controller to serve requests")
+	handleFatalError(viper.BindPFlag("controller.webhook.host", pflag.Lookup("admission-webhook-host")))
+
 	pflag.IntVar(&admissionWebhookPort, "admission-webhook-port", 9443, "Port used by the admission controller to serve requests")
+	handleFatalError(viper.BindPFlag("controller.webhook.port", pflag.Lookup("admission-webhook-port")))
+
 	pflag.Parse()
 
 	logger, err := log.NewZapLogger()
 	if err != nil {
 		setupLog.Error(err, "error creating controller logger")
 		os.Exit(1)
+	}
+
+	// load configuration file if present
+	if config != "" {
+		logger.Infow("loading configuration file", "config", config)
+
+		viper.SetConfigFile(config)
+
+		if err := viper.ReadInConfig(); err != nil {
+			logger.Fatalw("error loading configuration file", "error", err)
+		}
+
+		viper.WatchConfig()
+		viper.OnConfigChange(func(in fsnotify.Event) {
+			logger.Info("configuration has changed, restarting")
+			os.Exit(0)
+		})
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -182,6 +237,14 @@ func main() {
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		logger.Errorw("problem running manager", "error", err)
+		os.Exit(1)
+	}
+}
+
+// handleFatalError logs the given error and exits if err is not nil
+func handleFatalError(err error) {
+	if err != nil {
+		setupLog.Error(err, "fatal error occurred on setup")
 		os.Exit(1)
 	}
 }
