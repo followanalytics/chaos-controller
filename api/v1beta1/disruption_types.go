@@ -56,6 +56,8 @@ type DisruptionSpec struct {
 	DiskPressure *DiskPressureSpec `json:"diskPressure,omitempty"`
 	// +nullable
 	DNS DNSDisruptionSpec `json:"dns,omitempty"`
+	// +nullable
+	GRPC GRPCDisruptionSpec `json:"grpc,omitempty"`
 }
 
 // DisruptionStatus defines the observed state of Disruption
@@ -181,12 +183,14 @@ func (s *DisruptionSpec) DisruptionKindPicker(kind chaostypes.DisruptionKindName
 		disruptionKind = s.NodeFailure
 	case chaostypes.DisruptionKindNetworkDisruption:
 		disruptionKind = s.Network
-	case chaostypes.DisruptionKindDNSDisruption:
-		disruptionKind = s.DNS
 	case chaostypes.DisruptionKindCPUPressure:
 		disruptionKind = s.CPUPressure
 	case chaostypes.DisruptionKindDiskPressure:
 		disruptionKind = s.DiskPressure
+	case chaostypes.DisruptionKindDNSDisruption:
+		disruptionKind = s.DNS
+	case chaostypes.DisruptionKindGRPCDisruption:
+		disruptionKind = s.GRPC
 	}
 
 	return disruptionKind

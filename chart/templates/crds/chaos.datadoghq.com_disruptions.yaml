@@ -96,6 +96,20 @@ spec:
               type: array
             dryRun:
               type: boolean
+            grpc:
+              description: GRPCDisruptionSpec represents a dns disruption
+              nullable: true
+              properties:
+                flow:
+                  enum:
+                  - egress
+                  - ingress
+                  type: string
+                hostname:
+                  type: string
+              required:
+              - hostname
+              type: object
             level:
               description: DisruptionLevel represents which level the disruption should
                 be injected at
