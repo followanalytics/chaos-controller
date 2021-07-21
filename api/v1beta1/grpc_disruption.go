@@ -8,6 +8,7 @@ package v1beta1
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var (
@@ -66,20 +67,30 @@ func (s GRPCDisruptionSpec) GenerateArgs() []string {
 	args := []string{
 		"grpc-disruption",
 	}
-	/*
-		hostRecordPairArgs := []string{}
 
-		for _, pair := range s {
-			whiteSpaceCleanedIPList := strings.ReplaceAll(pair.Record.Value, " ", "")
-			arg := fmt.Sprintf("%s;%s;%s", pair.Hostname, pair.Record.Type, whiteSpaceCleanedIPList)
-			hostRecordPairArgs = append(hostRecordPairArgs, arg)
+	endpointAlterationArgs := []string{}
+
+	for _, pair := range s {
+		var alterationType, alterationValue string
+		if pair.ErrorToReturn != "" {
+			alterationType = "error"
+			alterationValue = pair.ErrorToReturn
 		}
+		if pair.OverrideToReturn != "" {
+			alterationType = "override"
+			alterationValue = pair.OverrideToReturn
+		}
+		arg := fmt.Sprintf("%s;%s;%s", pair.TargetEndpoint, alterationType, alterationValue)
 
-		args = append(args, "--host-record-pairs")
+		endpointAlterationArgs = append(endpointAlterationArgs, arg)
+	}
 
-		// Each value passed to --host-record-pairs should be of the form `hostname;type;value`, e.g.
-		// `foo.bar.svc.cluster.local;A;10.0.0.0,10.0.0.13`
-		args = append(args, strings.Split(strings.Join(hostRecordPairArgs, " --host-record-pairs "), " ")...)
-	*/
+	args = append(args, "--endpoint-alterations")
+
+	// Each value passed to --host-record-pairs should be of the form `endpoint;alteration_type;alteration_value`, e.g.
+	// `/chaos_dogfood.ChaosDogfood/order;error;ALREADY_EXISTS`
+	// `/chaos_dogfood.ChaosDogfood/order;override;{}`
+	args = append(args, strings.Split(strings.Join(endpointAlterationArgs, " --endpoint-alterations "), " ")...)
+
 	return args
 }
