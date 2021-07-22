@@ -80,15 +80,6 @@ build-injector: injector
 build-handler: handler
 	docker build -t ${HANDLER_IMAGE} -f bin/handler/Dockerfile ./bin/handler/
 
-#build-manager-arm: manager-arm
-#	docker build -t ${MANAGER_IMAGE} -f bin/manager/Dockerfile ./bin/manager/
-#
-#build-injector-arm: injector-arm
-#	docker build -t ${INJECTOR_IMAGE} -f bin/injector/Dockerfile ./bin/injector/
-#
-#build-handler-arm: handler-arm
-#	docker build -t ${HANDLER_IMAGE} -f bin/handler/Dockerfile ./bin/handler/
-
 minikube-scp-manager-tar: minikube-ssh-host
 	mkdir -p out
 	rm -f out/manager.tar
